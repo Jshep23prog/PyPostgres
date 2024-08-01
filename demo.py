@@ -28,6 +28,28 @@ def insert_data():
     conn.commit()
     conn.close
 
+#add a delete function
+def delete_data():
+    student_id = input("Enter the ID of the student you want to delete: ")
+    conn = psycopg2.connect(dbname="pydb", user=db_user, password=db_password)
+    cur = conn.cursor()
+    #determine if student exists
+    cur.execute("select * from students where student_id=%s", (student_id, ))
+    student = cur.fetchone()
+
+    if student:
+      print(f"Student to be deleted: ID {student[0]}, Name: {student[1]}, Address: {student[2]}, Number {student[3]}")
+      choice = input("Are you sure you want to delete your student? (yes/no)")
+      if choice.lower() == "yes":
+          cur.execute("delete from students where student_id=%s", (student_id, ))
+          print("Student record deleted")
+      else:
+          print("Deletion cancelled")
+    else:
+        print("Student not found")
+    conn.commit()
+    conn.close()
+
 def update_data():
     student_id = input("Enter id of the student to be updated")
     conn = psycopg2.connect(dbname="pydb", user=db_user, password=db_password)
@@ -59,4 +81,5 @@ def update_data():
     conn.close()
 
 # insert_data
-update_data()
+# update_data()
+delete_data()
