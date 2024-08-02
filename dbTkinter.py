@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter import ttk
+from tkinter import messagebox
 import os
 import psycopg2
 
@@ -7,6 +8,69 @@ from dotenv import load_dotenv
 load_dotenv()
 db_user = os.getenv('DB_USER')
 db_password = os.getenv('DB_PASSWORD')
+
+#create connection code to keep things DRY
+def run_query(query, parameters=()): # optional parameters in the form of a tuple
+    conn = psycopg2.connect(dbname="pydb", user=db_user, password=db_password)
+    cur = conn.cursor()
+    query_result = None
+    try:
+        cur.execute(query, parameters)
+        if query.lower().startswith("select"):
+            query_result = cur.fetchall()
+        conn.commit()
+    except psycopg2.Error as e:
+        messagebox.showerror("Database Error", str(e))
+    finally:
+        cur.close()
+        conn.close
+    return query_result
+
+#refresh treeview function
+def refresh_treeview():
+    #clear tree view
+    for item in tree.get_children():
+        tree.delete(item)
+    #gather data from db
+    records = run_query("select * from students;")
+    #loop through records
+    for record in records:
+        tree.insert("", END, values=record)
+#functions for CRUD operations
+#CREATE
+def create_table():
+    query = "create table if not exists students(student_id serial primary key,name text,address text,age int,number text); "
+    run_query(query)
+    messagebox.showinfo("Information", "Table created.")
+    refresh_treeview()
+
+#INSERT
+def insert_data():
+     query = "insert into students(name, address, age, number) values(%s, %s, %s, %s)"
+     parameters = (name_entry.get(), address_entry.get(), age_entry.get(), phone_entry.get())
+     run_query(query, parameters)
+     messagebox.showinfo("Information", "Data inserted successfully.")
+     refresh_treeview()
+
+#DELETE
+def delete_data():
+    selected_item = tree.selection()[0]
+    student_id = tree.item(selected_item)['values'][0] #select the id from the value list that we query
+    query = "delete from students where student_id=%s"
+    parameters = (student_id,) #comma to signify that this is a tuple NOT a function call
+    run_query(query, parameters)
+    messagebox.showinfo("Information", "Data deleted successfully.")
+    refresh_treeview()
+
+#UPDATE
+def update_data():
+    selected_item = tree.selection()[0]
+    student_id = tree.item(selected_item)['values'][0]
+    query = "update students set name=%s, address=%s, age=%s, number=%s where student_id=%s"
+    parameters = (name_entry.get(), address_entry.get(), age_entry.get(), phone_entry.get(), student_id)
+    run_query(query, parameters)
+    messagebox.showinfo("Information", "Data updated successfully.")
+    refresh_treeview()
 
 root = Tk()
 root.title("Student DBMS")
@@ -35,10 +99,10 @@ phone_entry.grid(row=3, column=1, pady=2, sticky="ew")
 button_frame = Frame(root)
 button_frame.grid(row=1, column=0, pady=5, sticky="ew")
 
-Button(button_frame, text="Create Table").grid(row=0, column=0, padx=5)
-Button(button_frame, text="Add Data").grid(row=0, column=1, padx=5)
-Button(button_frame, text="Update Data").grid(row=0, column=2, padx=5)
-Button(button_frame, text="Delete Data").grid(row=0, column=3, padx=5)
+Button(button_frame, text="Create Table", command=create_table).grid(row=0, column=0, padx=5)
+Button(button_frame, text="Add Data", command=insert_data).grid(row=0, column=1, padx=5)
+Button(button_frame, text="Update Data", command=update_data).grid(row=0, column=2, padx=5)
+Button(button_frame, text="Delete Data", command=delete_data).grid(row=0, column=3, padx=5)
 
 #create frame for the data tree
 tree_frame = Frame(root)
@@ -50,8 +114,21 @@ tree_scroll.pack(side=RIGHT, fill=Y)
 tree = ttk.Treeview(tree_frame, yscrollcommand=tree_scroll.set, selectmode="browse") #attach scrollbar to treeview
 tree.pack()
 tree_scroll.config(command=tree.yview)
+#define columns as tuples
+tree['columns']=("student_id", "name", "address", "age", "number")
+tree.column("#0", width=0, stretch=NO)
+tree.column("student_id", anchor=CENTER, width=80)
+tree.column("name", anchor=CENTER, width=120)
+tree.column("address", anchor=CENTER, width=120)
+tree.column("age", anchor=CENTER, width=50)
+tree.column("number", anchor=CENTER, width=120)
+
+tree.heading("student_id", text="ID", anchor=CENTER)
+tree.heading("name", text="Name", anchor=CENTER)
+tree.heading("address", text="Address", anchor=CENTER)
+tree.heading("age", text="Age", anchor=CENTER)
+tree.heading("number", text="Phone Number", anchor=CENTER)
 
 
-
-
+refresh_treeview()
 root.mainloop()
